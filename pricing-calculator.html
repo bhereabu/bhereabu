@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pricing Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    * { font-family: 'Inter', sans-serif; }
+
+    :root {
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --accent-dark: #4f46e5;
+    }
+
+    body {
+      background: #0f0f13;
+      min-height: 100vh;
+    }
+
+    /* Custom range slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+      border: 3px solid #0f0f13;
+      box-shadow: 0 0 0 2px #6366f1, 0 4px 12px rgba(99,102,241,0.5);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      box-shadow: 0 0 0 3px #6366f1, 0 4px 20px rgba(99,102,241,0.7);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+      border: 3px solid #0f0f13;
+      box-shadow: 0 0 0 2px #6366f1;
+    }
+
+    .glow-card {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      box-shadow: 0 0 0 1px rgba(99,102,241,0.05), 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .price-glow {
+      text-shadow: 0 0 40px rgba(99,102,241,0.6);
+    }
+
+    .pill {
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #818cf8;
+    }
+
+    .tier-card {
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+
+    .tier-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .tier-card.active {
+      border-color: #6366f1 !important;
+      background: rgba(99,102,241,0.1) !important;
+    }
+
+    .breakdown-row {
+      transition: opacity 0.2s ease;
+    }
+
+    .animate-pulse-slow {
+      animation: pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .savings-badge {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 4px 15px rgba(16,185,129,0.3);
+    }
+
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo, useCallback } = React;
+
+/* ─── Tier Config ─────────────────────────────────────────────────── */
+const TIERS = [
+  { id: "starter",  label: "Starter",     base: 0,    color: "#64748b" },
+  { id: "pro",      label: "Pro",         base: 29,   color: "#6366f1" },
+  { id: "business", label: "Business",    base: 99,   color: "#8b5cf6" },
+  { id: "enterprise",label: "Enterprise", base: 299,  color: "#ec4899" },
+];
+
+/* ─── Slider Config ─────────────────────────────────────────────────── */
+const SLIDERS = [
+  {
+    id:    "users",
+    label: "Team Members",
+    icon:  "👥",
+    min:   1, max: 500, step: 1, default: 5,
+    format: v => v === 1 ? "1 user" : `${v} users`,
+    price: (v, tier) => {
+      const free = tier === "starter" ? 1 : tier === "pro" ? 5 : tier === "business" ? 20 : 100;
+      const rate = tier === "starter" ? 8  : tier === "pro" ? 6 : tier === "business" ? 4  : 2.5;
+      return Math.max(0, v - free) * rate;
+    },
+  },
+  {
+    id:    "storage",
+    label: "Storage",
+    icon:  "💾",
+    min:   1, max: 2000, step: 5, default: 10,
+    format: v => v >= 1000 ? `${(v/1000).toFixed(1)} TB` : `${v} GB`,
+    price: (v, tier) => {
+      const free = tier === "starter" ? 5 : tier === "pro" ? 50 : tier === "business" ? 500 : 2000;
+      const rate = tier === "starter" ? 0.05 : tier === "pro" ? 0.04 : tier === "business" ? 0.03 : 0.02;
+      return Math.max(0, v - free) * rate;
+    },
+  },
+  {
+    id:    "api",
+    label: "API Calls / month",
+    icon:  "⚡",
+    min:   1000, max: 10_000_000, step: 1000, default: 50_000,
+    format: v => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v,
+    price: (v, tier) => {
+      const free = tier === "starter" ? 10_000 : tier === "pro" ? 500_000 : tier === "business" ? 5_000_000 : 50_000_000;
+      const rate = tier === "starter" ? 0.0002 : tier === "pro" ? 0.00015 : tier === "business" ? 0.0001 : 0.00005;
+      return Math.max(0, v - free) * rate;
+    },
+  },
+  {
+    id:    "projects",
+    label: "Projects",
+    icon:  "📁",
+    min:   1, max: 200, step: 1, default: 3,
+    format: v => v === 1 ? "1 project" : `${v} projects`,
+    price: (v, tier) => {
+      const free = tier === "starter" ? 3 : tier === "pro" ? 20 : tier === "business" ? 100 : Infinity;
+      const rate = tier === "starter" ? 5 : tier === "pro" ? 3 : tier === "business" ? 2 : 0;
+      return Math.max(0, v - free) * rate;
+    },
+  },
+  {
+    id:    "support",
+    label: "Support SLA",
+    icon:  "🎯",
+    min:   0, max: 3, step: 1, default: 0,
+    format: v => ["Community", "Email (48h)", "Priority (4h)", "Dedicated 24/7"][v],
+    price: (v, tier) => {
+      const matrix = {
+        starter:    [0, 15, 49, 199],
+        pro:        [0, 0,  29, 149],
+        business:   [0, 0,  0,  99],
+        enterprise: [0, 0,  0,  0],
+      };
+      return (matrix[tier] || matrix.starter)[v] || 0;
+    },
+  },
+];
+
+/* ─── Helpers ─────────────────────────────────────────────────────── */
+function fmt$(n) {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function SliderTrack({ value, min, max }) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <div className="relative w-full h-6 flex items-center">
+      <div className="absolute inset-0 h-1.5 top-1/2 -translate-y-1/2 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-100"
+          style={{ width: `${pct}%`, background: "linear-gradient(90deg, #4f46e5, #818cf8)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main App ────────────────────────────────────────────────────── */
+function App() {
+  const [tierId,   setTierId]   = useState("pro");
+  const [billing,  setBilling]  = useState("monthly"); // "monthly" | "annual"
+  const [values,   setValues]   = useState(() =>
+    Object.fromEntries(SLIDERS.map(s => [s.id, s.default]))
+  );
+
+  const tier = TIERS.find(t => t.id === tierId);
+
+  const breakdown = useMemo(() => {
+    return SLIDERS.map(s => ({
+      ...s,
+      addon: s.price(values[s.id], tierId),
+    }));
+  }, [values, tierId]);
+
+  const subtotal = useMemo(() => {
+    return tier.base + breakdown.reduce((sum, s) => sum + s.addon, 0);
+  }, [tier, breakdown]);
+
+  const discount  = billing === "annual" ? 0.2 : 0;
+  const total     = subtotal * (1 - discount);
+  const annualSave = subtotal * 0.2 * 12;
+
+  const onChange = useCallback((id, v) => {
+    setValues(prev => ({ ...prev, [id]: v }));
+  }, []);
+
+  return (
+    <div className="min-h-screen py-12 px-4" style={{ background: "#0f0f13" }}>
+
+      {/* Header */}
+      <div className="text-center mb-12">
+        <span className="pill text-xs font-semibold px-3 py-1 rounded-full inline-block mb-4 uppercase tracking-widest">
+          Pricing Calculator
+        </span>
+        <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-3">
+          Build your perfect plan
+        </h1>
+        <p className="text-white/40 text-lg">
+          Adjust sliders to estimate your monthly cost in real time.
+        </p>
+      </div>
+
+      <div className="max-w-5xl mx-auto grid lg:grid-cols-[1fr_340px] gap-6 items-start">
+
+        {/* Left Panel */}
+        <div className="space-y-5">
+
+          {/* Tier selector */}
+          <div className="glow-card rounded-2xl p-6">
+            <p className="text-white/50 text-xs uppercase tracking-widest font-semibold mb-4">Base Plan</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {TIERS.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTierId(t.id)}
+                  className={`tier-card rounded-xl border border-white/10 bg-white/5 p-4 text-left ${tierId === t.id ? "active" : ""}`}
+                >
+                  <div
+                    className="w-2.5 h-2.5 rounded-full mb-3"
+                    style={{ background: t.color, boxShadow: `0 0 8px ${t.color}` }}
+                  />
+                  <p className="text-white font-semibold text-sm">{t.label}</p>
+                  <p className="text-white/40 text-xs mt-0.5">
+                    {t.base === 0 ? "Free" : `${fmt$(t.base)}/mo`}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sliders */}
+          <div className="glow-card rounded-2xl p-6 space-y-7">
+            <p className="text-white/50 text-xs uppercase tracking-widest font-semibold">Usage</p>
+            {SLIDERS.map(s => {
+              const val  = values[s.id];
+              const cost = breakdown.find(b => b.id === s.id)?.addon ?? 0;
+              const pct  = Math.log1p(val - s.min) / Math.log1p(s.max - s.min);
+
+              return (
+                <div key={s.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{s.icon}</span>
+                      <span className="text-white/80 font-medium text-sm">{s.label}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-white font-semibold text-sm">{s.format(val)}</span>
+                      {cost > 0 && (
+                        <span className="text-xs text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded-full">
+                          +{fmt$(cost)}
+                        </span>
+                      )}
+                      {cost === 0 && (
+                        <span className="text-xs text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                          Included
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Track overlay for visual */}
+                  <div className="relative">
+                    <div className="absolute inset-0 pointer-events-none rounded-full"
+                      style={{
+                        background: `linear-gradient(90deg, rgba(99,102,241,0.12) ${pct*100}%, transparent ${pct*100}%)`,
+                        height: "6px", top: "50%", transform: "translateY(-50%)",
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min={s.min} max={s.max} step={s.step}
+                      value={val}
+                      onChange={e => onChange(s.id, +e.target.value)}
+                      style={{
+                        background: `linear-gradient(90deg, #6366f1 ${pct*100}%, rgba(255,255,255,0.1) ${pct*100}%)`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex justify-between mt-1">
+                    <span className="text-white/20 text-xs">{s.format(s.min)}</span>
+                    <span className="text-white/20 text-xs">{s.format(s.max)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Billing toggle */}
+          <div className="glow-card rounded-2xl p-6 flex items-center justify-between">
+            <div>
+              <p className="text-white font-medium text-sm">Billing Cycle</p>
+              <p className="text-white/40 text-xs mt-0.5">Annual billing saves 20%</p>
+            </div>
+            <div className="flex rounded-xl overflow-hidden border border-white/10">
+              {["monthly", "annual"].map(b => (
+                <button
+                  key={b}
+                  onClick={() => setBilling(b)}
+                  className={`px-4 py-2 text-sm font-semibold transition-all capitalize ${
+                    billing === b
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white/5 text-white/40 hover:text-white/70"
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel – Price Summary */}
+        <div className="lg:sticky lg:top-8">
+          <div className="glow-card rounded-2xl p-6">
+            <p className="text-white/50 text-xs uppercase tracking-widest font-semibold mb-6">
+              Estimate
+            </p>
+
+            {/* Big price */}
+            <div className="mb-6 text-center">
+              <div className="flex items-start justify-center gap-1">
+                <span className="text-white/50 text-lg mt-3">$</span>
+                <span className="text-6xl font-extrabold text-white price-glow">
+                  {Math.floor(total).toLocaleString()}
+                </span>
+                <span className="text-white/30 text-sm self-end mb-2">/mo</span>
+              </div>
+              {billing === "annual" && (
+                <p className="text-white/40 text-sm mt-1 line-through">{fmt$(subtotal)}/mo</p>
+              )}
+              {billing === "annual" && annualSave > 0 && (
+                <div className="savings-badge inline-flex items-center gap-1 px-3 py-1 rounded-full text-white text-xs font-bold mt-2">
+                  <span>🎉</span> Save {fmt$(annualSave)} / year
+                </div>
+              )}
+            </div>
+
+            {/* Breakdown */}
+            <div className="space-y-2 mb-6">
+              <div className="breakdown-row flex justify-between text-sm py-2 border-b border-white/5">
+                <span className="text-white/60">Base — {tier.label}</span>
+                <span className="text-white font-medium">{tier.base === 0 ? "Free" : fmt$(tier.base)}</span>
+              </div>
+
+              {breakdown.map(b => b.addon > 0 && (
+                <div key={b.id} className="breakdown-row flex justify-between text-sm py-1.5">
+                  <span className="text-white/40 flex items-center gap-1.5">
+                    <span>{b.icon}</span> {b.label}
+                  </span>
+                  <span className="text-indigo-300">+{fmt$(b.addon)}</span>
+                </div>
+              ))}
+
+              {billing === "annual" && (
+                <div className="breakdown-row flex justify-between text-sm py-1.5">
+                  <span className="text-emerald-400">Annual discount (20%)</span>
+                  <span className="text-emerald-400">−{fmt$(subtotal * 0.2)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between text-sm py-2 border-t border-white/10 mt-2">
+                <span className="text-white font-semibold">Total / month</span>
+                <span className="text-white font-bold">{fmt$(total)}</span>
+              </div>
+
+              {billing === "annual" && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/40">Billed annually</span>
+                  <span className="text-white/60">{fmt$(total * 12)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* CTA */}
+            <button
+              className="w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                boxShadow: "0 4px 24px rgba(99,102,241,0.4)",
+              }}
+            >
+              Get started with {tier.label}
+            </button>
+
+            <p className="text-center text-white/25 text-xs mt-4">
+              No credit card required · Cancel anytime
+            </p>
+          </div>
+
+          {/* Feature highlight based on tier */}
+          <div className="glow-card rounded-2xl p-5 mt-4">
+            <p className="text-white/50 text-xs uppercase tracking-widest font-semibold mb-3">
+              {tier.label} includes
+            </p>
+            <ul className="space-y-2">
+              {({
+                starter:    ["Community support","3 projects","1 user","5 GB storage","10K API calls"],
+                pro:        ["Email support","20 projects","5 users","50 GB storage","500K API calls","Analytics dashboard","Custom domains"],
+                business:   ["Priority support","100 projects","20 users","500 GB storage","5M API calls","SSO / SAML","Audit logs","SLA guarantee"],
+                enterprise: ["Dedicated success mgr","Unlimited projects","100+ users","2 TB storage","50M API calls","Custom contracts","On-prem option","99.99% uptime SLA"],
+              })[tierId].map(f => (
+                <li key={f} className="flex items-center gap-2 text-sm text-white/60">
+                  <span className="text-indigo-400">✓</span> {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
