@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Axios Examples - Learn HTTP Requests</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Axios via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    body { background: #0f0f13; min-height: 100vh; }
+
+    .glow-card {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      box-shadow: 0 0 0 1px rgba(99,102,241,0.05), 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .pill {
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #818cf8;
+    }
+
+    pre {
+      background: #0d0d11;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    code { font-family: 'Fira Code', 'Consolas', monospace; }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* ─── Example 1: GET Request - Fetch Users ─────────────────────────── */
+function GetExample() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get('https://jsonplaceholder.typicode.com/users');
+      setUsers(response.data.slice(0, 5));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="glow-card rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="pill text-xs font-semibold px-2 py-0.5 rounded-full">GET</span>
+        <h2 className="text-white font-bold text-lg">Fetch Users</h2>
+      </div>
+      <p className="text-white/40 text-sm mb-4">Simple GET request to fetch a list of users.</p>
+
+      <pre className="mb-4">
+        <code className="text-emerald-300">{`const response = await axios.get(
+  'https://jsonplaceholder.typicode.com/users'
+);
+const users = response.data;`}</code>
+      </pre>
+
+      <button
+        onClick={fetchUsers}
+        disabled={loading}
+        className="px-4 py-2 rounded-xl font-semibold text-white text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+        style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+      >
+        {loading ? "Loading..." : "Fetch Users"}
+      </button>
+
+      {error && <p className="text-red-400 text-sm mt-3">Error: {error}</p>}
+
+      {users.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {users.map(user => (
+            <div key={user.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+              <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-sm font-bold">
+                {user.name[0]}
+              </div>
+              <div>
+                <p className="text-white text-sm font-medium">{user.name}</p>
+                <p className="text-white/40 text-xs">{user.email}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Example 2: POST Request - Create a Post ──────────────────────── */
+function PostExample() {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const createPost = async () => {
+    if (!title || !body) return;
+    setLoading(true);
+    try {
+      const response = await axios.post('https://jsonplaceholder.typicode.com/posts', {
+        title,
+        body,
+        userId: 1,
+      });
+      setResult(response.data);
+      setTitle('');
+      setBody('');
+    } catch (err) {
+      setResult({ error: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="glow-card rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400">POST</span>
+        <h2 className="text-white font-bold text-lg">Create a Post</h2>
+      </div>
+      <p className="text-white/40 text-sm mb-4">Send data to an API with a POST request.</p>
+
+      <pre className="mb-4">
+        <code className="text-amber-300">{`const response = await axios.post(url, {
+  title: 'My Post',
+  body: 'Post content...',
+  userId: 1,
+});`}</code>
+      </pre>
+
+      <div className="space-y-3 mb-4">
+        <input
+          type="text"
+          placeholder="Post title"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-white/30 outline-none focus:border-indigo-500"
+        />
+        <textarea
+          placeholder="Post body"
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          rows={2}
+          className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-white/30 outline-none focus:border-indigo-500 resize-none"
+        />
+      </div>
+
+      <button
+        onClick={createPost}
+        disabled={loading || !title || !body}
+        className="px-4 py-2 rounded-xl font-semibold text-white text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+        style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
+      >
+        {loading ? "Sending..." : "Create Post"}
+      </button>
+
+      {result && (
+        <pre className="mt-4">
+          <code className="text-white/70">{JSON.stringify(result, null, 2)}</code>
+        </pre>
+      )}
+    </div>
+  );
+}
+
+/* ─── Example 3: Error Handling & Interceptors ─────────────────────── */
+function ErrorHandlingExample() {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const testError = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      // This URL will return a 404
+      await axios.get('https://jsonplaceholder.typicode.com/posts/9999');
+    } catch (error) {
+      if (error.response) {
+        // Server responded with an error status (4xx, 5xx)
+        setResult({
+          type: 'Response Error',
+          status: error.response.status,
+          statusText: error.response.statusText,
+          message: 'The server responded with an error.',
+        });
+      } else if (error.request) {
+        // Request was made but no response received
+        setResult({
+          type: 'Network Error',
+          message: 'No response received from server.',
+        });
+      } else {
+        // Something else went wrong
+        setResult({
+          type: 'Request Setup Error',
+          message: error.message,
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="glow-card rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400">ERROR</span>
+        <h2 className="text-white font-bold text-lg">Error Handling</h2>
+      </div>
+      <p className="text-white/40 text-sm mb-4">Axios provides structured error information for debugging.</p>
+
+      <pre className="mb-4">
+        <code className="text-red-300">{`try {
+  await axios.get('/bad-url');
+} catch (error) {
+  if (error.response) {
+    // Server error (4xx / 5xx)
+    console.log(error.response.status);
+  } else if (error.request) {
+    // No response received
+  } else {
+    // Request setup error
+  }
+}`}</code>
+      </pre>
+
+      <button
+        onClick={testError}
+        disabled={loading}
+        className="px-4 py-2 rounded-xl font-semibold text-white text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+        style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}
+      >
+        {loading ? "Testing..." : "Trigger 404 Error"}
+      </button>
+
+      {result && (
+        <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+          <p className="text-red-300 font-semibold text-sm">{result.type}</p>
+          {result.status && <p className="text-white/60 text-sm mt-1">Status: {result.status} {result.statusText}</p>}
+          <p className="text-white/40 text-sm mt-1">{result.message}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Example 4: Axios Instance with Custom Config ─────────────────── */
+function InstanceExample() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Create a reusable axios instance with defaults
+  const api = axios.create({
+    baseURL: 'https://jsonplaceholder.typicode.com',
+    timeout: 5000,
+    headers: { 'X-Custom-Header': 'my-app' },
+  });
+
+  const fetchPosts = async () => {
+    setLoading(true);
+    try {
+      // Uses the instance - only need the path, not full URL
+      const { data } = await api.get('/posts', {
+        params: { _limit: 5 },
+      });
+      setPosts(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="glow-card rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">INSTANCE</span>
+        <h2 className="text-white font-bold text-lg">Custom Axios Instance</h2>
+      </div>
+      <p className="text-white/40 text-sm mb-4">Create reusable instances with shared config (baseURL, headers, timeout).</p>
+
+      <pre className="mb-4">
+        <code className="text-cyan-300">{`const api = axios.create({
+  baseURL: 'https://api.example.com',
+  timeout: 5000,
+  headers: { 'Authorization': 'Bearer token' },
+});
+
+// Now just use relative paths
+const { data } = await api.get('/posts');`}</code>
+      </pre>
+
+      <button
+        onClick={fetchPosts}
+        disabled={loading}
+        className="px-4 py-2 rounded-xl font-semibold text-white text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+        style={{ background: "linear-gradient(135deg, #06b6d4, #0891b2)" }}
+      >
+        {loading ? "Loading..." : "Fetch with Instance"}
+      </button>
+
+      {posts.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {posts.map(post => (
+            <div key={post.id} className="p-3 rounded-xl bg-white/5">
+              <p className="text-white text-sm font-medium">{post.title}</p>
+              <p className="text-white/30 text-xs mt-1 line-clamp-1">{post.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Example 5: Parallel Requests with axios.all ──────────────────── */
+function ParallelExample() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    try {
+      const [usersRes, postsRes, todosRes] = await Promise.all([
+        axios.get('https://jsonplaceholder.typicode.com/users?_limit=3'),
+        axios.get('https://jsonplaceholder.typicode.com/posts?_limit=3'),
+        axios.get('https://jsonplaceholder.typicode.com/todos?_limit=3'),
+      ]);
+      setData({
+        users: usersRes.data,
+        posts: postsRes.data,
+        todos: todosRes.data,
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="glow-card rounded-2xl p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-400">PARALLEL</span>
+        <h2 className="text-white font-bold text-lg">Parallel Requests</h2>
+      </div>
+      <p className="text-white/40 text-sm mb-4">Fetch multiple endpoints at once with Promise.all.</p>
+
+      <pre className="mb-4">
+        <code className="text-violet-300">{`const [users, posts, todos] = await Promise.all([
+  axios.get('/users'),
+  axios.get('/posts'),
+  axios.get('/todos'),
+]);`}</code>
+      </pre>
+
+      <button
+        onClick={fetchAll}
+        disabled={loading}
+        className="px-4 py-2 rounded-xl font-semibold text-white text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+        style={{ background: "linear-gradient(135deg, #8b5cf6, #7c3aed)" }}
+      >
+        {loading ? "Loading..." : "Fetch All in Parallel"}
+      </button>
+
+      {data && (
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="p-3 rounded-xl bg-white/5">
+            <p className="text-indigo-300 text-xs font-bold mb-2">Users ({data.users.length})</p>
+            {data.users.map(u => (
+              <p key={u.id} className="text-white/60 text-xs">{u.name}</p>
+            ))}
+          </div>
+          <div className="p-3 rounded-xl bg-white/5">
+            <p className="text-amber-300 text-xs font-bold mb-2">Posts ({data.posts.length})</p>
+            {data.posts.map(p => (
+              <p key={p.id} className="text-white/60 text-xs truncate">{p.title}</p>
+            ))}
+          </div>
+          <div className="p-3 rounded-xl bg-white/5">
+            <p className="text-emerald-300 text-xs font-bold mb-2">Todos ({data.todos.length})</p>
+            {data.todos.map(t => (
+              <p key={t.id} className="text-white/60 text-xs truncate">{t.completed ? "✓" : "○"} {t.title}</p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Main App ────────────────────────────────────────────────────── */
+function App() {
+  return (
+    <div className="min-h-screen py-12 px-4" style={{ background: "#0f0f13" }}>
+      <div className="text-center mb-12">
+        <span className="pill text-xs font-semibold px-3 py-1 rounded-full inline-block mb-4 uppercase tracking-widest">
+          Axios Tutorial
+        </span>
+        <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-3">
+          Learn Axios HTTP Requests
+        </h1>
+        <p className="text-white/40 text-lg max-w-xl mx-auto">
+          Interactive examples showing GET, POST, error handling, custom instances, and parallel requests.
+        </p>
+      </div>
+
+      <div className="max-w-3xl mx-auto space-y-6">
+        <GetExample />
+        <PostExample />
+        <ErrorHandlingExample />
+        <InstanceExample />
+        <ParallelExample />
+      </div>
+
+      <div className="max-w-3xl mx-auto mt-12 glow-card rounded-2xl p-6">
+        <h2 className="text-white font-bold text-lg mb-4">Quick Reference</h2>
+        <div className="grid md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-indigo-300 font-semibold mb-2">Install</p>
+            <pre><code className="text-white/60">{`<!-- CDN (for HTML files) -->
+<script src="https://cdn.jsdelivr.net/
+  npm/axios/dist/axios.min.js"><\/script>
+
+# npm (for Node.js / bundled projects)
+npm install axios`}</code></pre>
+          </div>
+          <div>
+            <p className="text-indigo-300 font-semibold mb-2">Common Methods</p>
+            <pre><code className="text-white/60">{`axios.get(url, config)
+axios.post(url, data, config)
+axios.put(url, data, config)
+axios.patch(url, data, config)
+axios.delete(url, config)`}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
