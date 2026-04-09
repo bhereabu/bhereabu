@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp /home/user/bhereabu/caveman/hooks/caveman-activate.js /home/user/bhereabu/.claude/hooks/caveman-activate.js)",
+      "Bash(cp /home/user/bhereabu/caveman/hooks/caveman-mode-tracker.js /home/user/bhereabu/.claude/hooks/caveman-mode-tracker.js)",
+      "Bash(git rm:*)",
+      "Bash(rm -rf caveman/.git)",
+      "Bash(git add:*)"
+    ]
+  }
+}
