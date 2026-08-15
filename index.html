@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Claude Feature Toolkit</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --panel: #17171d;
+    --code: #101015;
+    --line: #2a2a35;
+    --text: #e8e8ef;
+    --muted: #8b8b9c;
+    --accent: #6366f1;
+    --accent-soft: rgba(99,102,241,.14);
+    --ok: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 20px 100px;
+  }
+  .wrap { max-width: 840px; margin: 0 auto; }
+
+  header { margin-bottom: 34px; }
+  h1 { font-size: 30px; font-weight: 660; letter-spacing: -.025em; }
+  .lede { color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 62ch; line-height: 1.55; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 30px; }
+  .filters button {
+    background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+    font: inherit; font-size: 13px; padding: 6px 13px; border-radius: 999px; cursor: pointer;
+    transition: .15s;
+  }
+  .filters button:hover { color: var(--text); border-color: #3c3c4b; }
+  .filters button.on { background: var(--accent-soft); border-color: var(--accent); color: #a5b4fc; }
+
+  section { margin-bottom: 44px; }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); font-weight: 600; margin-bottom: 14px;
+  }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;
+  }
+  .card.hide { display: none; }
+
+  .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .num {
+    font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--accent);
+    background: var(--accent-soft); border-radius: 5px; padding: 2px 6px; font-weight: 600;
+  }
+  h3 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .kind {
+    margin-left: auto; font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
+  }
+  .desc { color: var(--muted); font-size: 14px; line-height: 1.55; margin-top: 8px; max-width: 66ch; }
+
+  .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-size: 13px; padding: 7px 13px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    text-decoration: none; display: inline-block; transition: .15s;
+  }
+  .btn:hover { color: var(--text); border-color: #3c3c4b; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #5457e0; }
+  .btn.copied { background: transparent; border-color: var(--ok); color: var(--ok); }
+
+  pre {
+    display: none; margin-top: 14px; background: var(--code);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 15px 16px; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; line-height: 1.62; color: #c9c9d8; white-space: pre-wrap;
+  }
+  pre.open { display: block; }
+
+  footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 20px; line-height: 1.6; }
+  footer a { color: #a5b4fc; }
+
+  @media (max-width: 520px) {
+    body { padding: 30px 14px 60px; }
+    h1 { font-size: 24px; }
+    .kind { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Claude Feature Toolkit</h1>
+    <p class="lede">
+      Seventeen features most people never turn on, each one built into something you can
+      use now: a prompt to copy, an app that runs, or a checklist to follow.
+      Pick one and set it up today.
+    </p>
+    <div class="filters" id="filters"></div>
+  </header>
+
+  <div id="sections"></div>
+
+  <footer>
+    Built from the source guide. See <a href="PLAN.md">PLAN.md</a> for what was
+    implemented and which claims in the original needed correcting
+    (model IDs, cache TTLs, and the real break-even math on caching).
+  </footer>
+</div>
+
+<script>
+const ITEMS = [
+  { n: 1, t: "Projects", kind: "prompt", group: "Foundations",
+    d: "Claude holds your documents and standing instructions permanently. Set this up before anything else on the list.",
+    file: "prompts/01-projects.md",
+    p: `You are my content research assistant. I run a newsletter about AI and crypto for a technical audience.
+
+Always assume my readers know the basics. Don't explain what an LLM is or what a blockchain is.
+
+When I share a topic or article, your job is to:
+1. Identify the 3 most counterintuitive or surprising angles
+2. Find connections to recent events I might have missed
+3. Suggest how I could frame this as a story, not a summary
+
+Tone: direct, no corporate language, no filler phrases.
+Format: short paragraphs, no bullet points unless I ask.
+Never start a response with "Great question" or "Certainly".` },
+
+  { n: 2, t: "Artifacts", kind: "app", group: "Foundations",
+    d: "Claude builds a live app in a side panel, not a code block you copy elsewhere. The habit tracker below is this prompt, built.",
+    file: "setup/02-artifacts.md", demo: "apps/habit-tracker.html",
+    p: `Build me a habit tracker as a working web app.
+
+I want to track 5 daily habits.
+Each day I can check them off.
+Show a 7-day streak counter for each habit.
+If I miss a day, the streak resets.
+
+Design: dark background, clean minimal look.
+Make the checkboxes satisfying to click - add a small animation when I complete one.
+The data should persist if I refresh the page.` },
+
+  { n: 3, t: "Adaptive Thinking", kind: "prompt", group: "Foundations",
+    d: "Claude reasons through the problem before answering and you can read the process. For real decisions the output differs in kind.",
+    file: "prompts/03-adaptive-thinking.md",
+    p: `I'm deciding between two options and I want you to think through this carefully before answering.
+
+Option A: [describe option A]
+Option B: [describe option B]
+
+My situation: [your context, constraints, what matters most]
+
+Work through this before responding. Think about:
+- The second and third-order consequences of each option
+- What I'm probably overweighting or underweighting emotionally
+- What information I might be missing that would change the decision
+- Which option has better downside protection if things go wrong
+
+Then give me your actual recommendation with your reasoning.` },
+
+  { n: 4, t: "Memory", kind: "prompt", group: "Foundations",
+    d: "Off by default. Turn it on and Claude keeps a profile of you across every chat, so you never introduce yourself again.",
+    file: "prompts/04-memory.md",
+    p: `I want you to remember the following about me so you don't need to ask again:
+
+My name is [name]. I work as [role] at [company or project].
+My main focus right now is [what you're working on].
+My audience or customers are [who they are].
+
+When I ask for help, always assume this context unless I say otherwise.
+My preferred communication style: [direct / detailed / casual / formal].
+Things I find annoying in responses: [e.g. bullet points, long intros, excessive caveats].
+
+Save all of this to memory now.` },
+
+  { n: 5, t: "Personal psychologist", kind: "prompt", group: "Role prompts",
+    d: "Asks questions instead of dispensing advice, and names the distortion when your thinking is bent.",
+    file: "prompts/05-psychologist.md",
+    p: `You are a cognitive behavioral therapist with 20 years of experience. I'm going to share something I'm struggling with.
+
+Your approach:
+- Don't give advice immediately. Start by asking questions to help me understand my own thinking patterns.
+- Listen for cognitive distortions - catastrophizing, black-and-white thinking, mind-reading, fortune-telling - and point them out when you notice them.
+- Ask one question at a time. Don't overwhelm me.
+- When I reach a conclusion on my own through your questions, that's the goal. Don't hand me the answer.
+- Be warm but honest. Don't validate me if my thinking is clearly distorted.
+- If I seem to be avoiding something important, name it directly.
+
+Don't start with a clinical introduction. Just ask me what's going on.` },
+
+  { n: 6, t: "The hard mentor", kind: "prompt", group: "Role prompts",
+    d: "Turns off the agreement. Finds the weak assumption and the exact place your plan breaks.",
+    file: "prompts/06-hard-mentor.md",
+    p: `You are a brutally honest mentor. You've built and failed at multiple companies. You've watched a hundred people make the same mistakes with complete confidence.
+
+Your job is not to encourage me - it's to protect me from my own blind spots before I make an expensive mistake.
+
+Rules:
+- Disagree with me when you think I'm wrong. Be specific about why.
+- Point out what I'm not seeing, especially things I might be avoiding because I want my plan to work.
+- Ask hard questions I haven't thought to ask myself.
+- If something is a bad idea, say it's a bad idea. Don't balance it with "on the other hand..."
+- End your responses with the single most important thing I should think about before moving forward.
+
+I'm about to share an idea. Do not be kind about it.` },
+
+  { n: 7, t: "Personal trainer", kind: "prompt", group: "Role prompts",
+    d: "Your real numbers in, a 12-week program out, adjusted every week as you report back.",
+    file: "prompts/07-personal-trainer.md",
+    p: `You are an expert personal trainer and sports nutritionist. I want you to build me a complete training program.
+
+My situation:
+Age: [age]
+Current weight / body composition: [details]
+Goal: [lose fat / build muscle / improve endurance / general fitness]
+Available equipment: [gym / home / dumbbells only / etc.]
+Days per week I can train: [number]
+Time per session: [minutes]
+Any injuries or limitations: [details or "none"]
+Current fitness level: [beginner / intermediate / advanced]
+
+Build me a 12-week program. Give me the full plan for each week with exercises, sets, reps, and rest periods. Explain why you're structuring it this way - I want to understand the logic, not just follow instructions. After I start, I'll report back weekly and you adjust based on how it's going.` },
+
+  { n: 8, t: "Practice a hard conversation", kind: "prompt", group: "Role prompts",
+    d: "Claude plays the other person, pushes back when your argument is weak, then debriefs you.",
+    file: "prompts/08-difficult-conversation.md",
+    p: `I need to prepare for a difficult conversation. I want you to roleplay as the other person so I can practice.
+
+The person: [describe who they are - boss, client, co-founder, etc.]
+What I need to say: [what you need to ask or tell them]
+Why it's hard: [what you're afraid of / what could go wrong]
+What this person is like: [their personality, how they typically react, what they care about]
+
+Stay in character throughout the conversation. Respond the way this person would actually respond - not how I'd like them to. If I say something weak or unconvincing, push back on it.
+
+After each exchange, step out of character briefly to tell me what worked and what didn't - then go back in.
+
+At the end, give me a full debrief: what I did well, what to change, and the most important things to keep in mind for the real conversation.` },
+
+  { n: 9, t: "Devil's advocate", kind: "prompt", group: "Role prompts",
+    d: "Use it on a decision you're already sure about. Five minutes before you commit, not after.",
+    file: "prompts/09-devils-advocate.md",
+    p: `I've made a decision and I want you to build the strongest possible case against it before I commit.
+
+The decision: [describe exactly what you're planning to do]
+My reasoning: [why you think it's a good idea]
+What I've already considered: [objections you've already thought about]
+
+Your job:
+- Build the strongest possible case AGAINST this decision.
+- Don't balance it with positives. I already believe in it - I need the counterargument.
+- Find the assumptions I'm making that could be wrong.
+- Describe the 3 most realistic ways this fails or backfires.
+- Tell me what I'm probably underestimating.
+- Tell me what I would need to believe for this to be a genuinely bad idea.
+
+Be ruthless. If this is a mistake, I need to know now.` },
+
+  { n: 10, t: "Claude in Chrome", kind: "prompt", group: "Where Claude runs",
+    d: "A browser extension that reads your active tab, clicks, fills forms, and navigates. Describe the task and step away.",
+    file: "prompts/10-chrome-tasks.md",
+    p: `I'm on this job listings page.
+Go through every listing visible and extract: job title, company name, salary range if shown, and the top 3 requirements.
+Build me a comparison table sorted by salary, highest first.
+If there are multiple pages, click through to the next page and keep going until you've covered all results.` },
+
+  { n: 11, t: "Claude Cowork", kind: "setup", group: "Where Claude runs",
+    d: "A desktop app with direct file system access. It reads and edits your actual files instead of asking you to paste them.",
+    file: "setup/11-cowork.md" },
+
+  { n: 12, t: "Scheduled Tasks", kind: "prompt", group: "Where Claude runs",
+    d: "Define the work once and it runs on a schedule with no trigger from you, saving output where you asked.",
+    file: "prompts/12-scheduled-tasks.md",
+    p: `Every weekday morning at 7:30am, do the following:
+
+1. Search for the top AI and crypto news from the last 24 hours
+2. Pick the 5 most important stories - focus on things that are surprising, counterintuitive, or have real implications for builders and investors
+3. For each story write: headline, 2-sentence summary, why it matters
+4. Save the result as "brief-[date].md" in my /briefs folder
+
+Keep the tone direct and analytical. No fluff. Readable in 3 minutes.` },
+
+  { n: 13, t: "Skills", kind: "setup", group: "Where Claude runs",
+    d: "Install a capability once instead of explaining it every time. A working skill ships in this repo.",
+    file: "setup/13-skills.md", demo: ".claude/skills/daily-brief/SKILL.md" },
+
+  { n: 14, t: "CLAUDE.md", kind: "setup", group: "Where Claude runs",
+    d: "Rules Claude reads at the start of every session in a folder. Write them once, they apply forever.",
+    file: "CLAUDE.md" },
+
+  { n: 15, t: "Claude Code", kind: "setup", group: "Where Claude runs",
+    d: "Reads your codebase, writes code, runs the tests, reads the errors, and fixes them in a loop until done.",
+    file: "setup/15-claude-code.md" },
+
+  { n: 16, t: "Claude Design", kind: "setup", group: "Where Claude runs",
+    d: "Anthropic Labs tool for decks, one-pagers, and layouts. Exports to PPTX, Canva, PDF, HTML.",
+    file: "setup/16-claude-design.md" },
+
+  { n: 17, t: "Prompt Caching", kind: "code", group: "For developers",
+    d: "Stop re-paying for a repeated context block on every API call. Cache reads cost about a tenth of the normal input price.",
+    file: "examples/prompt-caching/README.md", demo: "examples/prompt-caching/cached_request.py",
+    p: `{
+  "model": "claude-opus-5",
+  "system": [
+    {
+      "type": "text",
+      "text": "[your large system prompt or reference document]",
+      "cache_control": {"type": "ephemeral"}
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "[user message - this changes each call]"
+    }
+  ]
+}` },
+];
+
+const GROUPS = ["Foundations", "Role prompts", "Where Claude runs", "For developers"];
+const sections = document.getElementById('sections');
+
+for (const g of GROUPS) {
+  const sec = document.createElement('section');
+  const h = document.createElement('h2');
+  h.textContent = g;
+  sec.append(h);
+
+  for (const it of ITEMS.filter(x => x.group === g)) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.kind = it.kind;
+
+    const head = document.createElement('div');
+    head.className = 'head';
+    head.innerHTML =
+      `<span class="num">${it.n}</span><h3>${it.t}</h3><span class="kind">${it.kind}</span>`;
+
+    const desc = document.createElement('p');
+    desc.className = 'desc';
+    desc.textContent = it.d;
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    let pre = null;
+    if (it.p) {
+      pre = document.createElement('pre');
+      pre.textContent = it.p;
+
+      const copy = document.createElement('button');
+      copy.className = 'btn primary';
+      copy.textContent = 'Copy prompt';
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(it.p);
+        } catch (_) {
+          // clipboard API needs a secure context; fall back to a selection
+          const ta = document.createElement('textarea');
+          ta.value = it.p;
+          document.body.append(ta); ta.select();
+          document.execCommand('copy'); ta.remove();
+        }
+        copy.textContent = 'Copied';
+        copy.classList.add('copied');
+        setTimeout(() => { copy.textContent = 'Copy prompt'; copy.classList.remove('copied'); }, 1600);
+      });
+
+      const show = document.createElement('button');
+      show.className = 'btn';
+      show.textContent = 'Show';
+      show.addEventListener('click', () => {
+        pre.classList.toggle('open');
+        show.textContent = pre.classList.contains('open') ? 'Hide' : 'Show';
+      });
+
+      actions.append(copy, show);
+    }
+
+    const read = document.createElement('a');
+    read.className = 'btn';
+    read.href = it.file;
+    read.textContent = it.p ? 'Read the notes' : 'Open the checklist';
+    actions.append(read);
+
+    if (it.demo) {
+      const d = document.createElement('a');
+      d.className = 'btn';
+      d.href = it.demo;
+      d.textContent = it.kind === 'app' ? 'Open the built app' : 'See it built';
+      actions.append(d);
+    }
+
+    card.append(head, desc, actions);
+    if (pre) card.append(pre);
+    sec.append(card);
+  }
+  sections.append(sec);
+}
+
+// Filters
+const KINDS = ['all', 'prompt', 'app', 'setup', 'code'];
+const filters = document.getElementById('filters');
+KINDS.forEach((k, i) => {
+  const b = document.createElement('button');
+  b.textContent = k === 'all' ? 'Everything' : k;
+  if (i === 0) b.classList.add('on');
+  b.addEventListener('click', () => {
+    filters.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    document.querySelectorAll('.card').forEach(c => {
+      c.classList.toggle('hide', k !== 'all' && c.dataset.kind !== k);
+    });
+    document.querySelectorAll('section').forEach(s => {
+      const any = [...s.querySelectorAll('.card')].some(c => !c.classList.contains('hide'));
+      s.style.display = any ? '' : 'none';
+    });
+  });
+  filters.append(b);
+});
+</script>
+</body>
+</html>
