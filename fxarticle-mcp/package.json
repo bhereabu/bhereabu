@@ -1,0 +1,32 @@
+{
+  "name": "fxarticle-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for reading X (Twitter) Articles and posts via the FxEmbed/FxTwitter API \u2014 no API key, no account.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
+    "test": "node smoke-test.mjs"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  },
+  "type": "module",
+  "bin": {
+    "fxarticle-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
