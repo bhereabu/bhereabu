@@ -56,8 +56,13 @@ const STYLE_WRAPPERS: Record<string, [string, string]> = {
 interface Insertion {
   offset: number;
   text: string;
-  /** Closing markers must be applied before opening markers at the same offset. */
-  priority: number;
+  /** 0 opens a range, 1 closes it. */
+  kind: 0 | 1;
+  /**
+   * Orders same-kind markers at one offset so the outer range stays outside the
+   * inner one: `+length` for openers, `-length` for closers.
+   */
+  tiebreak: number;
 }
 
 /**
@@ -76,8 +81,9 @@ function renderInline(block: DraftBlock, entities: Map<string, DraftEntity>): st
     const start = Math.max(0, range.offset);
     const end = Math.min(text.length, range.offset + range.length);
     if (end <= start) continue;
-    insertions.push({ offset: start, text: wrapper[0], priority: 1 });
-    insertions.push({ offset: end, text: wrapper[1], priority: 0 });
+    const span = end - start;
+    insertions.push({ offset: start, text: wrapper[0], kind: 0, tiebreak: span });
+    insertions.push({ offset: end, text: wrapper[1], kind: 1, tiebreak: -span });
   }
 
   for (const range of block.entityRanges ?? []) {
@@ -88,13 +94,18 @@ function renderInline(block: DraftBlock, entities: Map<string, DraftEntity>): st
     const start = Math.max(0, range.offset);
     const end = Math.min(text.length, range.offset + range.length);
     if (end <= start) continue;
-    insertions.push({ offset: start, text: "[", priority: 1 });
-    insertions.push({ offset: end, text: `](${url})`, priority: 0 });
+    const span = end - start;
+    insertions.push({ offset: start, text: "[", kind: 0, tiebreak: span });
+    insertions.push({ offset: end, text: `](${url})`, kind: 1, tiebreak: -span });
   }
 
   if (insertions.length === 0) return text;
 
-  insertions.sort((a, b) => b.offset - a.offset || a.priority - b.priority);
+  // Applied right-to-left, and an insertion at a given offset pushes anything
+  // already inserted there rightwards — so whatever is applied last ends up
+  // leftmost. Openers therefore go first and closers last, otherwise adjacent
+  // ranges interleave ("**bold_**italic_" instead of "**bold**_italic_").
+  insertions.sort((a, b) => b.offset - a.offset || a.kind - b.kind || a.tiebreak - b.tiebreak);
 
   let out = text;
   for (const ins of insertions) {
